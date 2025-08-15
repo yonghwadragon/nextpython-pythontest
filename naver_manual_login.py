@@ -47,7 +47,9 @@ def init_driver() -> webdriver.Chrome:
             '/usr/bin/google-chrome-stable',
             '/usr/bin/google-chrome',
             '/usr/bin/chromium-browser',
-            '/opt/google/chrome/chrome'
+            '/opt/google/chrome/chrome',
+            '/snap/bin/chromium',
+            '/usr/bin/chromium'
         ]
         
         chrome_binary = None
@@ -57,20 +59,26 @@ def init_driver() -> webdriver.Chrome:
                 print(f"✅ Chrome 바이너리 발견: {path}")
                 break
         
-        if chrome_binary:
-            opts.binary_location = chrome_binary
-        else:
+        if not chrome_binary:
             print("❌ Chrome 바이너리를 찾을 수 없습니다.")
             # 시스템에서 chrome 찾기 시도
             import subprocess
-            try:
-                result = subprocess.run(['which', 'google-chrome'], capture_output=True, text=True)
-                if result.returncode == 0:
-                    chrome_binary = result.stdout.strip()
-                    opts.binary_location = chrome_binary
-                    print(f"✅ which 명령으로 Chrome 발견: {chrome_binary}")
-            except:
-                pass
+            commands_to_try = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium']
+            for cmd in commands_to_try:
+                try:
+                    result = subprocess.run(['which', cmd], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        chrome_binary = result.stdout.strip()
+                        print(f"✅ which 명령으로 {cmd} 발견: {chrome_binary}")
+                        break
+                except:
+                    continue
+        
+        if chrome_binary:
+            opts.binary_location = chrome_binary
+        else:
+            print("❌ 어떤 Chrome 바이너리도 찾을 수 없습니다.")
+            print("🔄 ChromeDriverManager가 자동으로 처리하도록 시도합니다...")
     else:
         print("💻 로컬 환경에서 GUI 모드로 실행합니다...")
         opts.add_experimental_option("detach", True)
