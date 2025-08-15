@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # naver_manual_login.py
-# 네이버 창을 열고 사용자가 수동으로 로그인할 때까지 대기
-# 로그인 후 블로그 화면까지 자동으로 이동
+# 네이버 자동 로그인 후 블로그 자동 작성 (제목: "1", 내용: "2")
 
 import os
 import sys
@@ -12,13 +11,16 @@ if sys.stdout.encoding != 'utf-8':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException, ElementClickInterceptedException
 from webdriver_manager.chrome import ChromeDriverManager
 
 BLOG_WRITE_URL = "https://blog.naver.com/GoBlogWrite.naver"
@@ -270,6 +272,81 @@ def navigate_to_blog(driver: webdriver.Chrome) -> bool:
         print(f"❌ 블로그 페이지 이동 중 오류: {e}")
         return False
 
+def write_simple_post(driver: webdriver.Chrome) -> bool:
+    """간단한 블로그 포스트 작성 (제목: "1", 내용: "2")"""
+    try:
+        wait = WebDriverWait(driver, MODEL_WAIT)
+        actions = ActionChains(driver)
+        
+        print("📝 블로그 포스트를 작성합니다...")
+        
+        # 제목 입력
+        print("✏️ 제목 입력 중...")
+        title_area = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, ".se-section-documentTitle")
+        ))
+        actions.move_to_element(title_area).click().perform()
+        
+        # 제목 "1" 입력
+        title = "1"
+        for ch in title:
+            actions.send_keys(ch).pause(0.0001)
+        actions.perform()
+        actions.reset_actions()
+        
+        print("✅ 제목 입력 완료: '1'")
+        
+        # 본문 입력
+        print("✏️ 본문 입력 중...")
+        body_area = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, ".se-section-text")
+        ))
+        actions.move_to_element(body_area).click().perform()
+        
+        # 본문 "2" 입력
+        body = "2"
+        for ch in body:
+            actions.send_keys(ch).pause(0.0001)
+        actions.perform()
+        
+        print("✅ 본문 입력 완료: '2'")
+        
+        # 임시저장 버튼 클릭
+        print("💾 임시저장 중...")
+        save_btn = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, ".save_btn__bzc5B")
+        ))
+        
+        # 저장 버튼이 화면에 보이도록 스크롤
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", save_btn)
+        time.sleep(0.1)
+        
+        # 저장 버튼 클릭 시도
+        try:
+            save_btn.click()
+        except ElementClickInterceptedException:
+            # JavaScript로 강제 클릭
+            driver.execute_script("arguments[0].click();", save_btn)
+        
+        # 저장 완료 토스트 메시지 대기
+        try:
+            wait.until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, ".toast_item__success, .se-toast-item__success")
+            ))
+            print("✅ 임시저장이 완료되었습니다!")
+        except TimeoutException:
+            print("⚠️ 저장 완료 메시지를 확인할 수 없지만 계속 진행합니다.")
+        
+        time.sleep(0.5)  # 저장 대기
+        return True
+        
+    except TimeoutException:
+        print("❌ 블로그 작성 중 시간 초과가 발생했습니다.")
+        return False
+    except Exception as e:
+        print(f"❌ 블로그 작성 중 오류 발생: {str(e)}")
+        return False
+
 def keep_browser_alive(driver: webdriver.Chrome):
     """브라우저를 열어둔 상태로 유지"""
     print("\n🎉 모든 설정이 완료되었습니다!")
@@ -296,14 +373,15 @@ def keep_browser_alive(driver: webdriver.Chrome):
 
 def main():
     """메인 실행 함수"""
-    print("🚀 네이버 블로그 자동 로그인 프로그램 시작!")
+    print("🚀 네이버 블로그 자동 작성 프로그램 시작!")
+    print("📝 제목: '1', 내용: '2'를 자동으로 작성하고 임시저장합니다.")
     print("="*50)
     
     # 1. 브라우저 초기화
     driver = init_driver()
     
     try:
-        # 2. 사용자 수동 로그인 대기
+        # 2. 로그인 (환경에 따라 자동/수동)
         if not wait_for_login(driver):
             print("❌ 로그인에 실패했습니다. 프로그램을 종료합니다.")
             return
@@ -313,14 +391,30 @@ def main():
             print("❌ 블로그 페이지 이동에 실패했습니다.")
             return
         
-        # 4. 브라우저 유지
-        keep_browser_alive(driver)
+        # 4. 간단한 블로그 포스트 작성
+        if write_simple_post(driver):
+            print("🎉 블로그 포스트 작성이 완료되었습니다!")
+            print("📄 제목: '1'")
+            print("📄 내용: '2'")
+            print("💾 임시저장 완료")
+        else:
+            print("❌ 블로그 포스트 작성에 실패했습니다.")
+            return
+        
+        # 5. 헤드리스 환경이 아닌 경우에만 브라우저 유지
+        if not (os.environ.get('RENDER') or os.environ.get('DISPLAY')):
+            keep_browser_alive(driver)
+        else:
+            print("🤖 헤드리스 환경에서 작업 완료. 브라우저를 종료합니다.")
+            time.sleep(2)  # 결과 확인 시간
         
     except Exception as e:
         print(f"❌ 예상치 못한 오류가 발생했습니다: {e}")
+        raise e  # 서버 환경에서 오류 전파
     finally:
         try:
-            driver.quit()
+            if os.environ.get('RENDER') or os.environ.get('DISPLAY'):
+                driver.quit()  # 헤드리스 환경에서는 명시적으로 종료
         except:
             pass
 
