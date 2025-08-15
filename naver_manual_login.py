@@ -1,8 +1,17 @@
+# -*- coding: utf-8 -*-
 # naver_manual_login.py
 # 네이버 창을 열고 사용자가 수동으로 로그인할 때까지 대기
 # 로그인 후 블로그 화면까지 자동으로 이동
 
+import os
+import sys
 import time
+
+# 한글 출력을 위한 설정
+if sys.stdout.encoding != 'utf-8':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -37,6 +46,18 @@ def wait_for_login(driver: webdriver.Chrome) -> bool:
     """사용자가 수동으로 로그인할 때까지 대기"""
     print("🌐 네이버 로그인 페이지를 엽니다...")
     driver.get(NAVER_LOGIN_URL)
+    
+    # 자동 로그인 체크박스 해제
+    try:
+        time.sleep(2)  # 페이지 로딩 대기
+        auto_login_checkbox = driver.find_element(By.ID, "keep")
+        if auto_login_checkbox.is_selected():
+            auto_login_checkbox.click()
+            print("✅ 자동 로그인 체크박스를 해제했습니다.")
+        else:
+            print("📋 자동 로그인이 이미 해제되어 있습니다.")
+    except Exception:
+        print("📋 자동 로그인 체크박스를 찾을 수 없습니다.")
     
     print("👤 수동으로 로그인해 주세요...")
     print("⏳ 로그인 완료를 감지할 때까지 대기 중...")
@@ -82,6 +103,16 @@ def navigate_to_blog(driver: webdriver.Chrome) -> bool:
     try:
         driver.get(BLOG_WRITE_URL)
         wait = WebDriverWait(driver, MODEL_WAIT)
+        
+        # 임시저장 글 삭제 알림 처리
+        try:
+            time.sleep(2)  # 페이지 로딩 대기
+            alert = driver.switch_to.alert
+            print("📋 임시저장 글 삭제 알림을 확인했습니다.")
+            alert.accept()  # 확인 버튼 클릭
+            print("✅ 임시저장 글 삭제 알림을 처리했습니다.")
+        except Exception:
+            print("📋 임시저장 글 삭제 알림이 없습니다.")
         
         # 메인 프레임 전환 대기
         print("🔄 블로그 에디터 로딩 중...")
