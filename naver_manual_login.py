@@ -28,25 +28,94 @@ MODEL_WAIT = 15
 def init_driver() -> webdriver.Chrome:
     """ChromeDriver 초기화 (브라우저 자동 종료 방지)"""
     opts = Options()
-    opts.add_experimental_option("detach", True)
+    
+    # Render 환경 감지 및 헤드리스 설정
+    if os.environ.get('RENDER') or os.environ.get('DISPLAY'):
+        print("🐧 Render 환경에서 헤드리스 모드로 실행합니다...")
+        opts.add_argument('--headless')
+        opts.add_argument('--no-sandbox')
+        opts.add_argument('--disable-dev-shm-usage')
+        opts.add_argument('--disable-gpu')
+        opts.add_argument('--disable-extensions')
+        opts.add_argument('--remote-debugging-port=9222')
+        # Chrome 바이너리 경로 명시
+        opts.binary_location = '/usr/bin/google-chrome-stable'
+    else:
+        print("💻 로컬 환경에서 GUI 모드로 실행합니다...")
+        opts.add_experimental_option("detach", True)
+    
     # Chrome 콘솔 스팸 숨기기
     opts.add_experimental_option(
         "excludeSwitches", ["enable-logging", "enable-automation"]
     )
     opts.add_experimental_option("useAutomationExtension", False)
     
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()), 
-        options=opts
-    )
-    driver.set_window_size(1600, 950)
-    return driver
+    try:
+        driver = webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()), 
+            options=opts
+        )
+        driver.set_window_size(1600, 950)
+        return driver
+    except Exception as e:
+        print(f"❌ Chrome 드라이버 초기화 실패: {str(e)}")
+        raise
 
 def wait_for_login(driver: webdriver.Chrome) -> bool:
-    """사용자가 수동으로 로그인할 때까지 대기"""
+    """사용자가 수동으로 로그인할 때까지 대기 (헤드리스 환경에서는 자동 로그인)"""
     print("🌐 네이버 로그인 페이지를 엽니다...")
     driver.get(NAVER_LOGIN_URL)
     
+    # Render 환경에서 자동 로그인 시도
+    if os.environ.get('RENDER') or os.environ.get('DISPLAY'):
+        return auto_login(driver)
+    
+    # 로컬 환경에서는 수동 로그인
+    return manual_login(driver)
+
+def auto_login(driver: webdriver.Chrome) -> bool:
+    """헤드리스 환경에서 자동 로그인"""
+    naver_id = os.environ.get('NAVER_ID')
+    naver_pw = os.environ.get('NAVER_PW')
+    
+    if not naver_id or not naver_pw:
+        print("❌ 환경변수에 NAVER_ID 또는 NAVER_PW가 설정되지 않았습니다.")
+        return False
+    
+    try:
+        print("🤖 헤드리스 환경에서 자동 로그인을 시도합니다...")
+        
+        # ID 입력
+        id_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "id"))
+        )
+        id_input.send_keys(naver_id)
+        
+        # 비밀번호 입력
+        pw_input = driver.find_element(By.ID, "pw")
+        pw_input.send_keys(naver_pw)
+        
+        # 로그인 버튼 클릭
+        login_btn = driver.find_element(By.ID, "log.login")
+        login_btn.click()
+        
+        # 로그인 완료 대기
+        time.sleep(5)
+        
+        # 로그인 성공 확인
+        if "nidlogin.login" not in driver.current_url:
+            print("✅ 자동 로그인에 성공했습니다.")
+            return True
+        else:
+            print("❌ 자동 로그인에 실패했습니다.")
+            return False
+            
+    except Exception as e:
+        print(f"❌ 자동 로그인 중 오류 발생: {str(e)}")
+        return False
+
+def manual_login(driver: webdriver.Chrome) -> bool:
+    """로컬 환경에서 수동 로그인 대기"""
     # 자동 로그인 체크박스 해제
     try:
         time.sleep(2)  # 페이지 로딩 대기

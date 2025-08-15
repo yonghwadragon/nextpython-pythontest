@@ -2,9 +2,27 @@ services:
   - type: web
     name: naver-automation
     env: python
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: |
+      # Chrome 및 의존성 설치
+      apt-get update
+      apt-get install -y wget gnupg unzip
+      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list
+      apt-get update
+      apt-get install -y google-chrome-stable
+      
+      # Python 의존성 설치
+      pip install -r requirements.txt
     startCommand: "python server.py"
     plan: free
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.4
+      - key: DISPLAY
+        value: :99
+      - key: RENDER
+        value: true
+      - key: NAVER_ID
+        value: your_naver_id
+      - key: NAVER_PW
+        value: your_naver_password
