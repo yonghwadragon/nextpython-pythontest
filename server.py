@@ -94,6 +94,64 @@ async def get_status():
         ]
     }
 
+@app.get("/api/debug")
+async def debug_info():
+    """시스템 디버그 정보"""
+    import subprocess
+    import glob
+    
+    debug_data = {
+        "environment": dict(os.environ),
+        "chrome_paths": [],
+        "system_info": {}
+    }
+    
+    # Chrome 바이너리 경로 확인
+    chrome_paths = [
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/opt/google/chrome/chrome'
+    ]
+    
+    for path in chrome_paths:
+        if os.path.exists(path):
+            debug_data["chrome_paths"].append({"path": path, "exists": True})
+        else:
+            debug_data["chrome_paths"].append({"path": path, "exists": False})
+    
+    # 시스템 명령어 실행
+    try:
+        # which google-chrome
+        result = subprocess.run(['which', 'google-chrome'], capture_output=True, text=True)
+        debug_data["system_info"]["which_chrome"] = {
+            "returncode": result.returncode,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip()
+        }
+    except Exception as e:
+        debug_data["system_info"]["which_chrome"] = {"error": str(e)}
+    
+    try:
+        # google-chrome --version
+        result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True)
+        debug_data["system_info"]["chrome_version"] = {
+            "returncode": result.returncode,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip()
+        }
+    except Exception as e:
+        debug_data["system_info"]["chrome_version"] = {"error": str(e)}
+    
+    try:
+        # ls /usr/bin/*chrome*
+        chrome_files = glob.glob('/usr/bin/*chrome*')
+        debug_data["system_info"]["chrome_files"] = chrome_files
+    except Exception as e:
+        debug_data["system_info"]["chrome_files"] = {"error": str(e)}
+    
+    return debug_data
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))

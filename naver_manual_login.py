@@ -38,8 +38,39 @@ def init_driver() -> webdriver.Chrome:
         opts.add_argument('--disable-gpu')
         opts.add_argument('--disable-extensions')
         opts.add_argument('--remote-debugging-port=9222')
-        # Chrome 바이너리 경로 명시
-        opts.binary_location = '/usr/bin/google-chrome-stable'
+        opts.add_argument('--disable-background-timer-throttling')
+        opts.add_argument('--disable-backgrounding-occluded-windows')
+        opts.add_argument('--disable-renderer-backgrounding')
+        
+        # Chrome 바이너리 경로 동적 찾기
+        chrome_paths = [
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            '/opt/google/chrome/chrome'
+        ]
+        
+        chrome_binary = None
+        for path in chrome_paths:
+            if os.path.exists(path):
+                chrome_binary = path
+                print(f"✅ Chrome 바이너리 발견: {path}")
+                break
+        
+        if chrome_binary:
+            opts.binary_location = chrome_binary
+        else:
+            print("❌ Chrome 바이너리를 찾을 수 없습니다.")
+            # 시스템에서 chrome 찾기 시도
+            import subprocess
+            try:
+                result = subprocess.run(['which', 'google-chrome'], capture_output=True, text=True)
+                if result.returncode == 0:
+                    chrome_binary = result.stdout.strip()
+                    opts.binary_location = chrome_binary
+                    print(f"✅ which 명령으로 Chrome 발견: {chrome_binary}")
+            except:
+                pass
     else:
         print("💻 로컬 환경에서 GUI 모드로 실행합니다...")
         opts.add_experimental_option("detach", True)

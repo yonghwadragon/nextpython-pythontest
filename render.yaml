@@ -3,13 +3,22 @@ services:
     name: naver-automation
     env: python
     buildCommand: |
-      # Chrome 및 의존성 설치
+      # 시스템 업데이트 및 필수 패키지 설치
       apt-get update
-      apt-get install -y wget gnupg unzip
+      apt-get install -y wget gnupg unzip curl software-properties-common
+      
+      # Chrome 저장소 추가 및 설치
       wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
       echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list
       apt-get update
       apt-get install -y google-chrome-stable
+      
+      # 가상 디스플레이를 위한 Xvfb 설치
+      apt-get install -y xvfb
+      
+      # Chrome 설치 확인
+      google-chrome --version || echo "Chrome 설치 실패"
+      which google-chrome || echo "Chrome 경로를 찾을 수 없음"
       
       # Python 의존성 설치
       pip install -r requirements.txt
